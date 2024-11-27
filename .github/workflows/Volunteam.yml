@@ -51,8 +51,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Ensure ESLint is installed
+        run: npm install eslint --save-dev
+
       - name: Run ESLint
-        run: npm run lint
+        run: npx eslint .
 
       - name: Run Tests
         run: npm test
@@ -102,4 +105,3 @@ jobs:
           message: |
             :rocket: A new version of VolunTeam has been published!
             Release: ${{ github.event.release.tag_name }}
-
