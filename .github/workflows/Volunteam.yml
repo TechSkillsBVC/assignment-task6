@@ -51,11 +51,8 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Ensure ESLint is installed
-        run: npm install eslint --save-dev
-
       - name: Run ESLint
-        run: npx eslint .
+        run: npx eslint .  # Ensure this runs with the local `eslint` binary
 
       - name: Run Tests
         run: npm test
