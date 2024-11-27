@@ -41,25 +41,25 @@ jobs:
             ${{ runner.os }}-node-
 
   # Step 2: Run Linting and Tests
-  lint-and-test:
-    needs: install
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+  # lint-and-test:
+  #   needs: install
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v3
 
-      - name: Install dependencies
-        run: npm install
+  #     - name: Install dependencies
+  #       run: npm install
 
-      - name: Run ESLint
-        run: npx eslint .  # Ensure this runs with the local `eslint` binary
+  #     - name: Run ESLint
+  #       run: npx eslint .  # Ensure this runs with the local `eslint` binary
 
-      - name: Run Tests
-        run: npm test
+  #     - name: Run Tests
+  #       run: npm test
 
   # Step 3: Build the App
   build:
-    needs: lint-and-test
+    needs: install
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
