@@ -2,6 +2,8 @@ name: Build and Deploy on Release
  
 on:
   push:
+    branches:
+    - appdeploy
     types:
       - published
  
