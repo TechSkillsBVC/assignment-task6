@@ -3,7 +3,12 @@ name: Build and Deploy on Release
 on:
   push:
     branches:
-    - appdeploy
+      - main
+      - appdeploy
+  pull_request:
+    branches:
+      - main
+  release:
     types:
       - published
  
