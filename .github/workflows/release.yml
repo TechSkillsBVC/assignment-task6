@@ -9,30 +9,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # Step 1: Checkout repository
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    # Step 2: Install dependencies
     - name: Install dependencies
       run: npm install
 
-    # Step 3: Update baseURL in src/services/api.ts
-    # Replace "http://your_ip_address_here" with user-provided IP (from GitHub Secrets)
     - name: Update baseURL in API
       run: sed -i "s|http://your_ip_address_here:3333|http://${{ secrets.USER_IP }}:3333|g" src/services/api.ts
 
-    # Step 4: Start JSON Server
     - name: Start JSON Server
       run: npx json-server --watch db.json --port 3333 --host ${{ secrets.USER_IP }} -m ./node_modules/json-server-auth &
-    
-    # Step 5: Set IMGBB API Key in src/services/imageApi.ts
-    # Replace placeholder with user-provided API key (from GitHub Secrets)
+
     - name: Set IMGBB API Key
       run: sed -i "s|insert_your_api_key_here|${{ secrets.IMGBB_API_KEY }}|g" src/services/imageApi.ts
 
-    # Step 6: Start Expo
+    - name: Install Correct React Native Version
+      run: npx expo install react-native@0.70.8
+
     - name: Start Expo
       env:
         IMGBB_API_KEY: ${{ secrets.IMGBB_API_KEY }}
-      run: npx expo start --non-interactive
+        CI: 1
+      run: npx expo start
