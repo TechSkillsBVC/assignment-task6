@@ -1,0 +1,34 @@
+name: Release Workflow
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Update baseURL in API
+      run: sed -i "s|http://your_ip_address_here:3333|http://${{ secrets.USER_IP }}:3333|g" src/services/api.ts
+
+    - name: Start JSON Server
+      run: npx json-server --watch db.json --port 3333 --host ${{ secrets.USER_IP }} -m ./node_modules/json-server-auth &
+
+    - name: Set IMGBB API Key
+      run: sed -i "s|insert_your_api_key_here|${{ secrets.IMGBB_API_KEY }}|g" src/services/imageApi.ts
+
+    - name: Install Correct React Native Version
+      run: npx expo install react-native@0.70.8
+
+    - name: Start Expo
+      env:
+        IMGBB_API_KEY: ${{ secrets.IMGBB_API_KEY }}
+        CI: 1
+      run: npx expo start
