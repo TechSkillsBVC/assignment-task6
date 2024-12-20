@@ -3,198 +3,187 @@ import { StackScreenProps } from '@react-navigation/stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import React, { useContext, useEffect, useState } from 'react';
-import { Alert, Image, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Text, TextInput, View, StyleProp, ViewStyle, TextStyle } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Spinner from 'react-native-loading-spinner-overlay';
+
 import BigButton from '../components/BigButton';
 import Spacer from '../components/Spacer';
 import { AuthenticationContext } from '../context/AuthenticationContext';
+import { useLoginForm } from '../hooks/useLoginForm';
 import logoImg from '../images/logo.png';
 import * as api from '../services/api';
 import { getFromCache, setInCache } from '../services/caching';
+import { RootStackParamList } from '../routes/AppStack';
+import { styles, GRADIENT_COLORS, BUTTON_COLOR } from './Login.styles';
+import { isTokenExpired } from '../utils';
 import { User } from '../types/User';
-import { isTokenExpired, sanitizeEmail, validateEmail } from '../utils';
 
-export default function Login({ navigation }: StackScreenProps<any>) {
-    const authenticationContext = useContext(AuthenticationContext);
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [emailIsInvalid, setEmailIsInvalid] = useState<boolean>();
-    const [passwordIsInvalid, setPasswordIsInvalid] = useState<boolean>();
-    const [authError, setAuthError] = useState<string>();
+type LoginScreenProps = StackScreenProps<RootStackParamList, 'Login'>;
 
-    const [accessTokenIsValid, setAccessTokenIsValid] = useState<boolean>(false);
-    const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
-    const isFocused = useIsFocused();
+/**
+ * Login screen component that handles user authentication
+ * Features:
+ * - Email and password validation
+ * - Secure token-based authentication
+ * - Persistent login state using cache
+ * - Loading states and error handling
+ * - Keyboard-aware scrolling
+ */
+const Login: React.FC<LoginScreenProps> = ({ navigation }) => {
+  const authContext = useContext(AuthenticationContext);
+  const {
+    formState,
+    setEmail,
+    setPassword,
+    validateForm,
+    getSanitizedEmail,
+    resetForm,
+  } = useLoginForm();
 
-    useEffect(() => {
-        getFromCache('userInfo').then(
-            (cachedUserInfo) => authenticationContext?.setValue(cachedUserInfo as User),
-            (error: any) => console.log(error)
-        );
-        getFromCache('accessToken').then(
-            (accessToken) => accessToken && !isTokenExpired(accessToken as string) && setAccessTokenIsValid(true),
-            (error: any) => console.log(error)
-        );
-        if (authError)
-            Alert.alert('Authentication Error', authError, [{ text: 'Ok', onPress: () => setAuthError(undefined) }]);
-    }, [authError]);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [authError, setAuthError] = useState<string>();
+  const [accessTokenIsValid, setAccessTokenIsValid] = useState(false);
+  
+  const isFocused = useIsFocused();
 
-    useEffect(() => {
-        if (accessTokenIsValid && authenticationContext?.value) navigation.navigate('EventsMap');
-    }, [accessTokenIsValid]);
-
-    const handleAuthentication = () => {
-        if (formIsValid()) {
-            setIsAuthenticating(true);
-            api.authenticateUser(sanitizeEmail(email), password)
-                .then((response) => {
-                    setInCache('userInfo', response.data.user);
-                    setInCache('accessToken', response.data.accessToken);
-                    authenticationContext?.setValue(response.data.user);
-                    setIsAuthenticating(false);
-                    123;
-                    navigation.navigate('EventsMap');
-                })
-                .catch((error) => {
-                    if (error.response) {
-                        setAuthError(error.response.data);
-                    } else {
-                        setAuthError('Something went wrong.');
-                    }
-                    setIsAuthenticating(false);
-                });
+  // Check for cached credentials on mount
+  useEffect(() => {
+    const checkCachedAuth = async () => {
+      try {
+        const cachedUserInfo = await getFromCache('userInfo');
+        if (cachedUserInfo) {
+          authContext.setUser(cachedUserInfo);
         }
+
+        const accessToken = await getFromCache('accessToken');
+        if (accessToken && !isTokenExpired(accessToken)) {
+          setAccessTokenIsValid(true);
+        }
+      } catch (error) {
+        console.error('Error checking cached auth:', error);
+      }
     };
 
-    const formIsValid = () => {
-        const emailIsValid = !isEmailInvalid();
-        const passwordIsValid = !isPasswordInvalid();
-        return emailIsValid && passwordIsValid;
-    };
+    checkCachedAuth();
+  }, []);
 
-    const isPasswordInvalid = (): boolean => {
-        const invalidCheck = password.length < 6;
-        setPasswordIsInvalid(invalidCheck);
-        return invalidCheck ? true : false;
-    };
+  // Handle authentication errors
+  useEffect(() => {
+    if (authError) {
+      Alert.alert('Authentication Error', authError, [
+        { text: 'OK', onPress: () => setAuthError(undefined) }
+      ]);
+    }
+  }, [authError]);
 
-    const isEmailInvalid = (): boolean => {
-        const invalidCheck = !validateEmail(email);
-        setEmailIsInvalid(invalidCheck);
-        return invalidCheck ? true : false;
-    };
+  // Navigate when authenticated
+  useEffect(() => {
+    if (accessTokenIsValid && authContext.user) {
+      navigation.navigate('EventsMap');
+    }
+  }, [accessTokenIsValid, authContext.user]);
 
-    return (
-        <LinearGradient
-            start={{ x: 0.0, y: 0.0 }}
-            end={{ x: 1.0, y: 1.0 }}
-            colors={['#031A62', '#00A3FF']}
-            style={styles.gradientContainer}
-        >
-            {isFocused && <StatusBar animated translucent style="light" />}
-            <KeyboardAwareScrollView
-                style={styles.container}
-                contentContainerStyle={{
-                    padding: 24,
-                    flexGrow: 1,
-                    justifyContent: 'center',
-                    alignItems: 'stretch',
-                }}
-            >
-                <Image
-                    resizeMode="contain"
-                    style={{
-                        width: 240,
-                        height: 142,
-                        alignSelf: 'center',
-                    }}
-                    source={logoImg}
-                />
-                <Spacer size={80} />
-                <View style={styles.inputLabelRow}>
-                    <Text style={styles.label}>Email</Text>
-                    {emailIsInvalid && <Text style={styles.error}>invalid email</Text>}
-                </View>
-                <TextInput
-                    style={[styles.input, emailIsInvalid && styles.invalid]}
-                    onChangeText={(value) => setEmail(value)}
-                    onEndEditing={isEmailInvalid}
-                />
+  const handleAuthentication = async () => {
+    if (!validateForm()) {
+      return;
+    }
 
-                <View style={styles.inputLabelRow}>
-                    <Text style={styles.label}>Password</Text>
-                    {passwordIsInvalid && <Text style={styles.error}>invalid password</Text>}
-                </View>
-                <TextInput
-                    style={[styles.input, passwordIsInvalid && styles.invalid]}
-                    secureTextEntry={true}
-                    onChangeText={(value) => setPassword(value)}
-                    onEndEditing={isPasswordInvalid}
-                />
-                <Spacer size={80} />
-                <BigButton style={{ marginBottom: 8 }} onPress={handleAuthentication} label="Log in" color="#FF8700" />
-                <Spinner
-                    visible={isAuthenticating}
-                    textContent={'Authenticating...'}
-                    overlayColor="#031A62BF"
-                    textStyle={styles.spinnerText}
-                />
-            </KeyboardAwareScrollView>
-        </LinearGradient>
-    );
-}
+    setIsAuthenticating(true);
+    try {
+      const response = await api.authenticateUser(
+        getSanitizedEmail(),
+        formState.password
+      );
 
-const styles = StyleSheet.create({
-    gradientContainer: {
-        flex: 1,
-    },
+      const { user, accessToken } = response.data;
+      await setInCache('userInfo', user as User);
+      await setInCache('accessToken', accessToken as string);
+      
+      authContext.setUser(user as User);
+      navigation.navigate('EventsMap');
+    } catch (error: any) {
+      setAuthError(
+        error.response?.data || 'An error occurred during authentication'
+      );
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
 
-    container: {
-        flex: 1,
-    },
+  const getInputStyle = (hasError: boolean): StyleProp<TextStyle> => {
+    return [
+      styles.input,
+      hasError && styles.invalid,
+    ] as StyleProp<TextStyle>;
+  };
 
-    spinnerText: {
-        fontSize: 16,
-        fontFamily: 'Nunito_700Bold',
-        color: '#fff',
-    },
+  return (
+    <LinearGradient
+      start={{ x: 0.0, y: 0.0 }}
+      end={{ x: 1.0, y: 1.0 }}
+      colors={[GRADIENT_COLORS.start, GRADIENT_COLORS.end]}
+      style={styles.gradientContainer}
+    >
+      {isFocused && <StatusBar animated translucent style="light" />}
+      <KeyboardAwareScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer as StyleProp<ViewStyle>}
+      >
+        <Image
+          resizeMode="contain"
+          style={styles.logo}
+          source={logoImg}
+        />
+        <Spacer size={80} />
+        
+        <View style={styles.inputLabelRow}>
+          <Text style={styles.label}>Email</Text>
+          {formState.emailError && (
+            <Text style={styles.error}>{formState.emailError}</Text>
+          )}
+        </View>
+        <TextInput
+          style={getInputStyle(!!formState.emailError)}
+          onChangeText={setEmail}
+          value={formState.email}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+        />
 
-    label: {
-        color: '#fff',
-        fontFamily: 'Nunito_600SemiBold',
-        fontSize: 15,
-    },
+        <View style={styles.inputLabelRow}>
+          <Text style={styles.label}>Password</Text>
+          {formState.passwordError && (
+            <Text style={styles.error}>{formState.passwordError}</Text>
+          )}
+        </View>
+        <TextInput
+          style={getInputStyle(!!formState.passwordError)}
+          secureTextEntry
+          onChangeText={setPassword}
+          value={formState.password}
+          autoCapitalize="none"
+        />
 
-    inputLabelRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'baseline',
-        marginBottom: 4,
-    },
+        <Spacer size={80} />
+        
+        <BigButton
+          style={{ marginBottom: 8 }}
+          onPress={handleAuthentication}
+          label="Log in"
+          color={BUTTON_COLOR}
+        />
 
-    input: {
-        backgroundColor: '#fff',
-        borderWidth: 1.4,
-        borderColor: '#D3E2E5',
-        borderRadius: 8,
-        height: 56,
-        paddingTop: 16,
-        paddingBottom: 16,
-        paddingHorizontal: 24,
-        marginBottom: 16,
-        color: '#5C8599',
-        fontFamily: 'Nunito_600SemiBold',
-        fontSize: 15,
-    },
+        <Spinner
+          visible={isAuthenticating}
+          textContent={'Authenticating...'}
+          overlayColor={GRADIENT_COLORS.overlay}
+          textStyle={styles.spinnerText}
+        />
+      </KeyboardAwareScrollView>
+    </LinearGradient>
+  );
+};
 
-    invalid: {
-        borderColor: 'red',
-    },
-
-    error: {
-        color: 'white',
-        fontFamily: 'Nunito_600SemiBold',
-        fontSize: 12,
-    },
-});
+export default Login;
